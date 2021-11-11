@@ -64,7 +64,7 @@ namespace TodoApp
         public DbContext GetDbContext(string dataSourceName, bool parallelQuery, IRouteTail routeTail)
         {
             var dbContext = _shardingDbContextExecutor.CreateDbContext(parallelQuery, dataSourceName, routeTail);
-            if (!parallelQuery && dbContext is AbpDbContext<TDbContext> abpDbContext)
+            if (dbContext is AbpDbContext<TDbContext> abpDbContext)
             {
                 abpDbContext.LazyServiceProvider = this.LazyServiceProvider;
             }
