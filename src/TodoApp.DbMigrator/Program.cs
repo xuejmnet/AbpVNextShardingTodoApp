@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
+using TodoApp.EntityFrameworkCore;
 
 namespace TodoApp.DbMigrator
 {
@@ -12,6 +13,7 @@ namespace TodoApp.DbMigrator
     {
         static async Task Main(string[] args)
         {
+            var x = typeof(TodoAppDbContextFactory);
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Information()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)

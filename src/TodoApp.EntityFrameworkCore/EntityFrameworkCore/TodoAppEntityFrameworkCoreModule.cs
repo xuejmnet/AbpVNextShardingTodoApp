@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ShardingCore;
+using ShardingCore.Bootstrapers;
 using ShardingCore.DIExtensions;
 using ShardingCore.Helpers;
 using TodoApp.VirtualRoutes;

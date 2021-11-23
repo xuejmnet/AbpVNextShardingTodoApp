@@ -6,9 +6,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ShardingCore;
 using ShardingCore.Bootstrapers;
+using TodoApp.EntityFrameworkCore;
 using TodoApp.VirtualRoutes;
 
-namespace TodoApp.EntityFrameworkCore
+namespace TodoApp.DbMigrator
+
 {
     /* This class is needed for EF Core console commands
     * (like Add-Migration and Update-Database commands) */
@@ -29,7 +31,7 @@ namespace TodoApp.EntityFrameworkCore
             var configuration = BuildConfiguration();
             services.AddShardingDbContext<TodoAppDbContext>(
                     (conn, o) =>
-                        o.UseSqlServer(conn,x=>x.MigrationsAssembly("TodoApp.EntityFrameworkCore"))
+                        o.UseSqlServer(conn, b => b.MigrationsAssembly("TodoApp.DbMigrator"))
                             .ReplaceService<IMigrationsSqlGenerator, ShardingSqlServerMigrationsSqlGenerator<TodoAppDbContext>>()
                 ).Begin(o =>
                 {
