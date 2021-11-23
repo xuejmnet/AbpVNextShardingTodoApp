@@ -57,12 +57,10 @@ namespace TodoApp.EntityFrameworkCore
                     context1.DbContextOptions.UseSqlServer("Server=.;Database=TodoApp;Trusted_Connection=True").UseSharding<TodoAppDbContext>();
                 });
             });
-
-            ShardingCoreHelper.CheckContextConstructors<TodoAppDbContext>();
-             new ShardingCoreConfigBuilder<TodoAppDbContext>(context.Services,((s, builder) =>
+            context.Services.AddShardingConfigure<TodoAppDbContext>((s, builder) =>
              {
                  builder.UseSqlServer(s);
-             } )).Begin(o =>
+             }).Begin(o =>
                  {
                      o.CreateShardingTableOnStart = false;
                      o.EnsureCreatedWithOutShardingTable = false;
