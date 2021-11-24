@@ -72,7 +72,7 @@ namespace TodoApp.EntityFrameworkCore
                  .AddShardingTableRoute(o =>
                  {
                      o.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
-                 }).End(); ;
+                 }).End(); 
         }
 
 
