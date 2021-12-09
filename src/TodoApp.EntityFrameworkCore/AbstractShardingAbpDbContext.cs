@@ -101,7 +101,7 @@ namespace TodoApp
                     {
                         return;
                     }
-                    var idProperty = entity.GetProperty(nameof(IEntity<Guid>.Id));
+                    var idProperty = entity.GetObjectProperty(nameof(IEntity<Guid>.Id));
 
                     var dbGeneratedAttr = ReflectionHelper
                         .GetSingleAttributeOrDefault<DatabaseGeneratedAttribute>(
