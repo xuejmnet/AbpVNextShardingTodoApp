@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ShardingCore;
 using ShardingCore.Bootstrapers;
 using ShardingCore.DIExtensions;
@@ -34,6 +35,10 @@ namespace TodoApp.EntityFrameworkCore
         )]
     public class TodoAppEntityFrameworkCoreModule : AbpModule
     {
+        public static readonly ILoggerFactory efLogger = LoggerFactory.Create(builder =>
+        {
+            builder.AddFilter((category, level) => category == DbLoggerCategory.Database.Command.Name && level == LogLevel.Information).AddConsole();
+        });
         public override void PreConfigureServices(ServiceConfigurationContext context)
         {
             TodoAppEfCoreEntityExtensionMappings.Configure();
@@ -59,7 +64,7 @@ namespace TodoApp.EntityFrameworkCore
             });
             context.Services.AddShardingConfigure<TodoAppDbContext>((s, builder) =>
              {
-                 builder.UseSqlServer(s);
+                 builder.UseSqlServer(s).UseLoggerFactory(efLogger);
              }).Begin(o =>
                  {
                      o.CreateShardingTableOnStart = false;
@@ -67,7 +72,7 @@ namespace TodoApp.EntityFrameworkCore
                      o.AutoTrackEntity = true;
                  })
                  .AddShardingTransaction((connection, builder) =>
-                     builder.UseSqlServer(connection))
+                     builder.UseSqlServer(connection).UseLoggerFactory(efLogger))
                  .AddDefaultDataSource("ds0", "Server=.;Database=TodoApp;Trusted_Connection=True")
                  .AddShardingTableRoute(o =>
                  {

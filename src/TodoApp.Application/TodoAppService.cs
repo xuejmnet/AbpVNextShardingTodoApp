@@ -18,8 +18,12 @@ namespace TodoApp
         
         public async Task<List<TodoItemDto>> GetListAsync()
         {
-            var xxx = new Guid("8C0B93CF-3E6F-87DB-600E-39FFBE66B7B6");
-            var xxxx=await _todoItemRepository.FirstOrDefaultAsync(o => o.Id == xxx);
+            var xxxx=await _todoItemRepository.FirstOrDefaultAsync();
+            if (xxxx != null)
+            {
+                xxxx.Text = xxxx.Text + DateTime.Now.ToString();
+                await _todoItemRepository.UpdateAsync(xxxx, true);
+            }
             var items = await _todoItemRepository.GetListAsync();
             return items
                 .Select(item => new TodoItemDto
