@@ -19,7 +19,6 @@ using Volo.Abp.TenantManagement.EntityFrameworkCore;
 
 namespace TodoApp.EntityFrameworkCore
 {
-    [ReplaceDbContext(typeof(IIdentityDbContext))]
     [ReplaceDbContext(typeof(ITenantManagementDbContext))]
     [ReplaceDbContext(typeof(ISettingManagementDbContext))]
     [ConnectionStringName("Default")]
