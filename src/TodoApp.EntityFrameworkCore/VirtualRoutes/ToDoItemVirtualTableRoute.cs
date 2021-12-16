@@ -8,7 +8,7 @@ using ShardingCore.VirtualRoutes.Mods;
 
 namespace TodoApp.VirtualRoutes
 {
-    public class ToDoItemVirtualTableRoute:AbstractSimpleShardingModKeyStringVirtualTableRoute<TodoItem>
+    public class ToDoItemVirtualTableRoute: AbstractSimpleShardingModKeyGuidVirtualTableRoute<TodoItem>
     {
         public ToDoItemVirtualTableRoute() : base(2, 5)
         {
