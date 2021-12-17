@@ -21,6 +21,7 @@ namespace TodoApp.EntityFrameworkCore
 {
     [ReplaceDbContext(typeof(ITenantManagementDbContext))]
     [ReplaceDbContext(typeof(ISettingManagementDbContext))]
+    [ReplaceDbContext(typeof(IIdentityDbContext))]
     [ConnectionStringName("Default")]
     public class TodoAppDbContext :
         AbstractShardingAbpDbContext<TodoAppDbContext>,
