@@ -35,7 +35,6 @@ namespace TodoApp.EntityFrameworkCore
                 {
                     o.CreateShardingTableOnStart = false;
                     o.EnsureCreatedWithOutShardingTable = false;
-                    o.AutoTrackEntity = true;
                 })
                 .AddShardingTransaction((connection, builder) =>
                     builder.UseSqlServer(connection))
@@ -48,7 +47,7 @@ namespace TodoApp.EntityFrameworkCore
             services.AddLogging();
             var buildServiceProvider = services.BuildServiceProvider();
             ShardingContainer.SetServices(buildServiceProvider);
-            new ShardingBootstrapper(buildServiceProvider).Start();
+            ShardingContainer.GetService<IShardingBootstrapper>().Start();
         }
 
         public TodoAppDbContext CreateDbContext(string[] args)
