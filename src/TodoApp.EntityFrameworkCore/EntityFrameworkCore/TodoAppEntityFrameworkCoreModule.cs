@@ -3,8 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ShardingCore;
 using ShardingCore.Bootstrapers;
+using ShardingCore.Core.VirtualDatabase.VirtualDataSources.Abstractions;
 using ShardingCore.DIExtensions;
 using ShardingCore.Helpers;
+using ShardingCore.TableExists;
 using TodoApp.VirtualRoutes;
 using Volo.Abp;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
@@ -59,24 +61,33 @@ namespace TodoApp.EntityFrameworkCore
                 options.UseSqlServer();
                 options.Configure<TodoAppDbContext>(context1 =>
                 {
-                    context1.DbContextOptions.UseSqlServer("Server=.;Database=TodoApp;Trusted_Connection=True").UseSharding<TodoAppDbContext>();
+                    var virtualDataSource = context1.ServiceProvider.GetRequiredService<IVirtualDataSourceManager<TodoAppDbContext>>().GetCurrentVirtualDataSource();
+                    var connectionString = virtualDataSource.GetConnectionString(virtualDataSource.DefaultDataSourceName);
+                    virtualDataSource.ConfigurationParams.UseDbContextOptionsBuilder(connectionString, context1.DbContextOptions);
+                    context1.DbContextOptions.UseSharding<TodoAppDbContext>();
                 });
             });
-            context.Services.AddShardingConfigure<TodoAppDbContext>((s, builder) =>
-             {
-                 builder.UseSqlServer(s).UseLoggerFactory(efLogger);
-             }).Begin(o =>
-                 {
-                     o.CreateShardingTableOnStart = false;
-                     o.EnsureCreatedWithOutShardingTable = false;
-                 })
-                 .AddShardingTransaction((connection, builder) =>
-                     builder.UseSqlServer(connection).UseLoggerFactory(efLogger))
-                 .AddDefaultDataSource("ds0", "Server=.;Database=TodoApp;Trusted_Connection=True")
-                 .AddShardingTableRoute(o =>
-                 {
-                     o.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
-                 }).End(); 
+            context.Services.AddShardingConfigure<TodoAppDbContext>()
+                .AddEntityConfig(op =>
+                {
+                    op.CreateShardingTableOnStart = true;
+                    op.EnsureCreatedWithOutShardingTable = true;
+                    op.UseShardingQuery((conStr, builder) =>
+                    {
+                        builder.UseSqlServer(conStr).UseLoggerFactory(efLogger);
+                    });
+                    op.UseShardingTransaction((connection, builder) =>
+                    {
+                        builder.UseSqlServer(connection).UseLoggerFactory(efLogger);
+                    });
+                    op.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
+                })
+                .AddConfig(op =>
+                {
+                    op.ConfigId = "c1";
+                    op.AddDefaultDataSource("ds0", "Server=.;Database=TodoApp;Trusted_Connection=True");
+                    op.ReplaceTableEnsureManager(sp => new SqlServerTableEnsureManager<TodoAppDbContext>());
+                }).EnsureConfig();
         }
 
 

@@ -30,22 +30,26 @@ namespace TodoApp.DbMigrator
             var services = new ServiceCollection();
             var configuration = BuildConfiguration();
             services.AddShardingDbContext<TodoAppDbContext>(
-                    (conn, o) =>
-                        o.UseSqlServer(conn, b => b.MigrationsAssembly("TodoApp.DbMigrator"))
-                            .ReplaceService<IMigrationsSqlGenerator, ShardingSqlServerMigrationsSqlGenerator<TodoAppDbContext>>()
-                ).Begin(o =>
+                )
+                .AddEntityConfig(op =>
                 {
-                    o.CreateShardingTableOnStart = false;
-                    o.EnsureCreatedWithOutShardingTable = false;
+                    op.CreateShardingTableOnStart = false;
+                    op.EnsureCreatedWithOutShardingTable = false;
+                    op.UseShardingQuery(
+                        (conn, o) =>
+                            o.UseSqlServer(conn, x => x.MigrationsAssembly("TodoApp.DbMigrator"))
+                                .ReplaceService<IMigrationsSqlGenerator,
+                                    ShardingSqlServerMigrationsSqlGenerator<TodoAppDbContext>>());
+                    op.UseShardingTransaction((connection, builder) =>
+                        builder.UseSqlServer(connection));
+                    op.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
                 })
-                .AddShardingTransaction((connection, builder) =>
-                    builder.UseSqlServer(connection))
-                .AddDefaultDataSource("ds0",
-                    configuration.GetConnectionString("Default"))
-                .AddShardingTableRoute(o =>
+                .AddConfig(op =>
                 {
-                    o.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
-                }).End();
+                    op.ConfigId = "c1";
+                    op.AddDefaultDataSource("ds0",
+                        configuration.GetConnectionString("Default"));
+                }).EnsureConfig();
             services.AddLogging();
             var buildServiceProvider = services.BuildServiceProvider();
             ShardingContainer.SetServices(buildServiceProvider);

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using ShardingCore.Core.VirtualDatabase.VirtualDataSources;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails.Abstractions;
 using ShardingCore.EFCores.OptionsExtensions;
 using ShardingCore.Extensions;
@@ -88,6 +89,11 @@ namespace TodoApp
             }
 
             return dbContext;
+        }
+
+        public IVirtualDataSource GetVirtualDataSource()
+        {
+            return _shardingDbContextExecutor.GetVirtualDataSource();
         }
 
         private void CheckAndSetShardingKeyThatSupportAutoCreate<TEntity>(TEntity entity) where TEntity : class
