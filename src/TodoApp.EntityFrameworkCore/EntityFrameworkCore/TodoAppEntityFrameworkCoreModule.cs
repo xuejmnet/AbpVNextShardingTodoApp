@@ -61,10 +61,20 @@ namespace TodoApp.EntityFrameworkCore
                 options.UseSqlServer();
                 options.Configure<TodoAppDbContext>(context1 =>
                 {
-                    var virtualDataSource = context1.ServiceProvider.GetRequiredService<IVirtualDataSourceManager<TodoAppDbContext>>().GetCurrentVirtualDataSource();
-                    var connectionString = virtualDataSource.GetConnectionString(virtualDataSource.DefaultDataSourceName);
-                    virtualDataSource.ConfigurationParams.UseDbContextOptionsBuilder(connectionString, context1.DbContextOptions);
-                    context1.DbContextOptions.UseSharding<TodoAppDbContext>();
+                    //简洁
+                    DIExtension.UseDefaultSharding<TodoAppDbContext>(context1.ServiceProvider, context1.DbContextOptions);
+
+
+                    ////也可以选择这个配置和上述一样进行了封装
+                    //var virtualDataSource = context1.ServiceProvider.GetRequiredService<IVirtualDataSourceManager<TodoAppDbContext>>().GetCurrentVirtualDataSource();
+                    //var connectionString = virtualDataSource.GetConnectionString(virtualDataSource.DefaultDataSourceName);
+                    //virtualDataSource.ConfigurationParams.UseDbContextOptionsBuilder(connectionString, context1.DbContextOptions);
+                    //context1.DbContextOptions.UseSharding<TodoAppDbContext>();
+
+
+
+                    ////如果你只有单配置可以选择这个配置但是链接字符串必须和AddConfig内部一样
+                    //context1.DbContextOptions.UseSqlServer("Server=.;Database=TodoApp;Trusted_Connection=True").UseSharding<TodoAppDbContext>();
                 });
             });
             context.Services.AddShardingConfigure<TodoAppDbContext>()
