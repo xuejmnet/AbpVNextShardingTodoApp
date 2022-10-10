@@ -23,7 +23,6 @@ using Volo.Abp.AspNetCore.Mvc.UI.Theme.Basic;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Basic.Bundling;
 using Volo.Abp.AspNetCore.Mvc.UI.Theme.Shared;
 using Volo.Abp.AspNetCore.Serilog;
-using Volo.Abp.Auditing;
 using Volo.Abp.Autofac;
 using Volo.Abp.AutoMapper;
 using Volo.Abp.FeatureManagement;
@@ -84,11 +83,6 @@ namespace TodoApp.Web
             ConfigureNavigationServices();
             ConfigureAutoApiControllers();
             ConfigureSwaggerServices(context.Services);
-//            Configure<AbpAuditingOptions>(options =>
-//{
-//    options.IsEnabled = false; //Disables the auditing system
-//});
-
         }
 
         private void ConfigureUrls(IConfiguration configuration)

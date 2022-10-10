@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -10,15 +11,24 @@ using ShardingCore.Core.VirtualDatabase.VirtualDataSources;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails.Abstractions;
 using ShardingCore.EFCores.OptionsExtensions;
 using ShardingCore.Extensions;
+using ShardingCore.Sharding;
 using ShardingCore.Sharding.Abstractions;
 using ShardingCore.Sharding.ShardingDbContextExecutors;
+using Volo.Abp.Data;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.EntityFrameworkCore;
+using Volo.Abp.ObjectExtending;
 using Volo.Abp.Reflection;
 
-namespace TodoApp
+namespace TodoApp.EntityFrameworkCore
 {
-    public abstract class AbstractShardingAbpDbContext<TDbContext> : AbpDbContext<TDbContext>, IShardingDbContext, ISupportShardingTransaction, ISupportShardingReadWrite
+    /// <summary>
+    /// 
+    /// </summary>
+    /// Author: xjm
+    /// Created: 2022/7/6 13:54:01
+    /// Email: 326308290@qq.com
+    public abstract class AbstractShardingAbpDbContext<TDbContext> : AbpDbContext<TDbContext>, IShardingDbContext, ISupportShardingReadWrite,ICurrentDbContextDiscover
                                 where TDbContext : DbContext
     {
         private readonly IShardingDbContextExecutor _shardingDbContextExecutor;
@@ -28,9 +38,7 @@ namespace TodoApp
             var wrapOptionsExtension = options.FindExtension<ShardingWrapOptionsExtension>();
             if (wrapOptionsExtension != null)
             {
-                _shardingDbContextExecutor =
-                    (IShardingDbContextExecutor)Activator.CreateInstance(
-                        typeof(ShardingDbContextExecutor<>).GetGenericType0(this.GetType()), this);
+                _shardingDbContextExecutor = new ShardingDbContextExecutor(this);
             }
         }
 
@@ -62,12 +70,20 @@ namespace TodoApp
         //    //isExecutor = true;
         //}
 
-        public DbContext GetDbContext(string dataSourceName, bool parallelQuery, IRouteTail routeTail)
+        public DbContext GetDbContext(string dataSourceName, CreateDbContextStrategyEnum strategy, IRouteTail routeTail)
         {
-            var dbContext = _shardingDbContextExecutor.CreateDbContext(parallelQuery, dataSourceName, routeTail);
+            var dbContext = _shardingDbContextExecutor.CreateDbContext(strategy, dataSourceName, routeTail);
             if (dbContext is AbpDbContext<TDbContext> abpDbContext && abpDbContext.LazyServiceProvider == null)
             {
                 abpDbContext.LazyServiceProvider = this.LazyServiceProvider;
+                if (dbContext is IAbpEfCoreDbContext abpEfCoreDbContext)
+                {
+                    abpEfCoreDbContext.Initialize(
+                        new AbpEfCoreDbContextInitializationContext(
+                            this.UnitOfWorkManager.Current
+                        )
+                    );
+                }
             }
 
             return dbContext;
@@ -86,6 +102,15 @@ namespace TodoApp
             if (dbContext is AbpDbContext<TDbContext> abpDbContext && abpDbContext.LazyServiceProvider == null)
             {
                 abpDbContext.LazyServiceProvider = this.LazyServiceProvider;
+
+                if (dbContext is IAbpEfCoreDbContext abpEfCoreDbContext)
+                {
+                    abpEfCoreDbContext.Initialize(
+                        new AbpEfCoreDbContextInitializationContext(
+                            this.UnitOfWorkManager.Current
+                        )
+                    );
+                }
             }
 
             return dbContext;
@@ -125,7 +150,8 @@ namespace TodoApp
                         true
                     );
                 }
-            }else if (entity is IShardingKeyIsCreationTime)
+            }
+            else if (entity is IShardingKeyIsCreationTime)
             {
                 AuditPropertySetter?.SetCreationProperties(entity);
             }
@@ -500,7 +526,7 @@ namespace TodoApp
             //如果是内部开的事务就内部自己消化
             if (Database.CurrentTransaction == null && _shardingDbContextExecutor.IsMultiDbContext)
             {
-                using (var tran = await Database.BeginTransactionAsync(cancellationToken))
+                using (var tran = await Database.BeginTransactionAsync((CancellationToken)cancellationToken))
                 {
                     i = await _shardingDbContextExecutor.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
 
@@ -566,6 +592,11 @@ namespace TodoApp
         public void Commit()
         {
             _shardingDbContextExecutor.Commit();
+        }
+
+        public IDictionary<string, IDataSourceDbContext> GetCurrentDbContexts()
+        {
+           return _shardingDbContextExecutor.GetCurrentDbContexts();
         }
     }
 }

@@ -2,28 +2,38 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using TodoApp.EntityFrameworkCore;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Data;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.ObjectExtending;
 
 namespace TodoApp
 {
     public class TodoAppService : ApplicationService, ITodoAppService
     {
         private readonly IRepository<TodoItem, Guid> _todoItemRepository;
+        private readonly TodoAppDbContext _dbContext;
 
-        public TodoAppService(IRepository<TodoItem, Guid> todoItemRepository)
+        public TodoAppService(IRepository<TodoItem, Guid> todoItemRepository, TodoAppDbContext dbContext)
         {
             _todoItemRepository = todoItemRepository;
+            _dbContext = dbContext;
         }
         
         public async Task<List<TodoItemDto>> GetListAsync()
         {
-            var xxxx=await _todoItemRepository.FirstOrDefaultAsync();
-            if (xxxx != null)
-            {
-                xxxx.Text = xxxx.Text + DateTime.Now.ToString();
-                await _todoItemRepository.UpdateAsync(xxxx, true);
-            }
+            var list =await _dbContext.TodoItems.ToListAsync();
+            var changeTrackerFactory = _dbContext.GetService<IChangeTrackerFactory>();
+            var changeTracker = changeTrackerFactory.Create();
+            var type = _dbContext.ChangeTracker.GetType();
+            var entityEntries = _dbContext.ChangeTracker.Entries<TodoItem>().ToList();
+            var properties = ObjectExtensionManager.Instance
+                .GetProperties(typeof(TodoItem));
+
             var items = await _todoItemRepository.GetListAsync();
             return items
                 .Select(item => new TodoItemDto
@@ -35,8 +45,11 @@ namespace TodoApp
 
         public async Task<TodoItemDto> CreateAsync(string text)
         {
+            var item = new TodoItem { Text = text };
+            item.SetProperty("MyProperty", text);
+            item.SetProperty("MyProperty1", text);
             var todoItem = await _todoItemRepository.InsertAsync(
-                new TodoItem {Text = text}
+                item
             );
 
             return new TodoItemDto

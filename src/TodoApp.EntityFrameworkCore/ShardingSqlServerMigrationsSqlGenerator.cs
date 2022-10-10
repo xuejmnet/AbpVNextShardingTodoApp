@@ -1,21 +1,32 @@
-﻿using System.Linq;
-using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.Helpers;
-using ShardingCore.Sharding.Abstractions;
 
 namespace TodoApp
 {
     /// <summary>
-    /// https://github.com/Coldairarrow/EFCore.Sharding/blob/master/src/EFCore.Sharding.SqlServer/ShardingSqlServerMigrationsSqlGenerator.cs
+    /// 
     /// </summary>
-    public class ShardingSqlServerMigrationsSqlGenerator<TShardingDbContext> : SqlServerMigrationsSqlGenerator where TShardingDbContext:DbContext,IShardingDbContext
+    /// Author: xjm
+    /// Created: 2022/7/6 14:09:51
+    /// Email: 326308290@qq.com
+    public class ShardingSqlServerMigrationsSqlGenerator: SqlServerMigrationsSqlGenerator
     {
-        public ShardingSqlServerMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies dependencies, IRelationalAnnotationProvider migrationsAnnotations) : base(dependencies, migrationsAnnotations)
+        private readonly IShardingRuntimeContext _shardingRuntimeContext;
+
+        public ShardingSqlServerMigrationsSqlGenerator(IShardingRuntimeContext shardingRuntimeContext,[NotNull] MigrationsSqlGeneratorDependencies dependencies, [NotNull] IRelationalAnnotationProvider migrationsAnnotations) : base(dependencies, migrationsAnnotations)
         {
+            _shardingRuntimeContext = shardingRuntimeContext;
         }
+
         protected override void Generate(
             MigrationOperation operation,
             IModel model,
@@ -26,7 +37,7 @@ namespace TodoApp
             var newCmds = builder.GetCommandList().ToList();
             var addCmds = newCmds.Where(x => !oldCmds.Contains(x)).ToList();
 
-            MigrationHelper.Generate<TShardingDbContext>(operation, builder, Dependencies.SqlGenerationHelper, addCmds);
+            MigrationHelper.Generate(_shardingRuntimeContext,operation, builder, Dependencies.SqlGenerationHelper, addCmds);
         }
     }
 }

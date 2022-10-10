@@ -1,12 +1,13 @@
-﻿using System.IO;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ShardingCore;
-using ShardingCore.Bootstrapers;
-using TodoApp.VirtualRoutes;
+using TodoApp.Routes;
 
 namespace TodoApp.EntityFrameworkCore
 {
@@ -14,6 +15,53 @@ namespace TodoApp.EntityFrameworkCore
     * (like Add-Migration and Update-Database commands) */
     public class TodoAppDbContextFactory : IDesignTimeDbContextFactory<TodoAppDbContext>
     {
+        private static IServiceProvider _serviceProvider;
+        static TodoAppDbContextFactory()
+        {
+            var services = new ServiceCollection();
+
+            services.AddShardingDbContext<TodoAppDbContext>()
+                .UseRouteConfig(op =>
+                {
+                    op.AddShardingDataSourceRoute<TodoDataSourceRoute>();
+                    op.AddShardingTableRoute<TodoTableRoute>();
+                })
+                .UseConfig((sp, op) =>
+                {
+                    op.UseShardingQuery((conStr, builder) =>
+                    {
+                        builder.UseSqlServer(conStr);
+                    });
+                    op.UseShardingTransaction((connection, builder) =>
+                    {
+                        builder.UseSqlServer(connection);
+                    });
+                    op.UseShardingMigrationConfigure(builder =>
+                    {
+                        builder.ReplaceService<IMigrationsSqlGenerator, ShardingSqlServerMigrationsSqlGenerator>();
+                    });
+                    op.AddDefaultDataSource("ds0", "Server=.;Database=TodoApp;Trusted_Connection=True");
+                    op.AddExtraDataSource(sp =>
+                    {
+                        return new Dictionary<string, string>()
+                        {
+                            { "ds1", "Server=.;Database=TodoApp1;Trusted_Connection=True" },
+                            { "ds2", "Server=.;Database=TodoApp2;Trusted_Connection=True" }
+                        };
+                    });
+                })
+                .AddShardingCore();
+            _serviceProvider = services.BuildServiceProvider();
+        }
+        public TodoAppDbContext CreateDbContext(string[] args)
+        {
+            TodoAppEfCoreEntityExtensionMappings.Configure();
+
+
+
+            return _serviceProvider.GetService<TodoAppDbContext>();
+        }
+
         private static IConfigurationRoot BuildConfiguration()
         {
             var builder = new ConfigurationBuilder()
@@ -21,42 +69,6 @@ namespace TodoApp.EntityFrameworkCore
                 .AddJsonFile("appsettings.json", optional: false);
 
             return builder.Build();
-        }
-
-        static TodoAppDbContextFactory()
-        {
-            var services = new ServiceCollection();
-            var configuration = BuildConfiguration();
-            services.AddShardingDbContext<TodoAppDbContext>(
-                )
-                .AddEntityConfig(op =>
-                {
-                    op.CreateShardingTableOnStart = false;
-                    op.EnsureCreatedWithOutShardingTable = false;
-                    op.UseShardingQuery(
-                        (conn, o) =>
-                            o.UseSqlServer(conn, x => x.MigrationsAssembly("TodoApp.EntityFrameworkCore"))
-                                .ReplaceService<IMigrationsSqlGenerator,
-                                    ShardingSqlServerMigrationsSqlGenerator<TodoAppDbContext>>());
-                    op.UseShardingTransaction((connection, builder) =>
-                        builder.UseSqlServer(connection));
-                    op.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
-                })
-                .AddConfig(op =>
-                {
-                    op.ConfigId = "c1";
-                    op.AddDefaultDataSource("ds0",
-                        configuration.GetConnectionString("Default"));
-                }).EnsureConfig();
-            services.AddLogging();
-            var buildServiceProvider = services.BuildServiceProvider();
-            ShardingContainer.SetServices(buildServiceProvider);
-            ShardingContainer.GetService<IShardingBootstrapper>().Start();
-        }
-
-        public TodoAppDbContext CreateDbContext(string[] args)
-        {
-            return ShardingContainer.GetService<TodoAppDbContext>();
         }
     }
 }

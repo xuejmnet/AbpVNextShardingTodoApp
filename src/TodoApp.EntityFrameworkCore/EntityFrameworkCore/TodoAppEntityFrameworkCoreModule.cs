@@ -1,13 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ShardingCore;
-using ShardingCore.Bootstrapers;
-using ShardingCore.Core.VirtualDatabase.VirtualDataSources.Abstractions;
-using ShardingCore.DIExtensions;
-using ShardingCore.Helpers;
-using ShardingCore.TableExists;
-using TodoApp.VirtualRoutes;
+using ShardingCore.EFCores;
+using ShardingCore.EFCores.ChangeTrackers;
+using TodoApp.Routes;
 using Volo.Abp;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -19,6 +20,7 @@ using Volo.Abp.IdentityServer.EntityFrameworkCore;
 using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
+using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
 
 namespace TodoApp.EntityFrameworkCore
@@ -37,6 +39,10 @@ namespace TodoApp.EntityFrameworkCore
         )]
     public class TodoAppEntityFrameworkCoreModule : AbpModule
     {
+        static TodoAppEntityFrameworkCoreModule()
+        {
+            TodoAppEfCoreEntityExtensionMappings.Configure();
+        }
         public static readonly ILoggerFactory efLogger = LoggerFactory.Create(builder =>
         {
             builder.AddFilter((category, level) => category == DbLoggerCategory.Database.Command.Name && level == LogLevel.Information).AddConsole();
@@ -59,29 +65,23 @@ namespace TodoApp.EntityFrameworkCore
                 /* The main point to change your DBMS.
                  * See also TodoAppDbContextFactory for EF Core tooling. */
                 options.UseSqlServer();
-                options.Configure<TodoAppDbContext>(context1 =>
+                options.Configure<TodoAppDbContext>(innerContext =>
                 {
-                    //简洁
-                    DIExtension.UseDefaultSharding<TodoAppDbContext>(context1.ServiceProvider, context1.DbContextOptions);
-
-
-                    ////也可以选择这个配置和上述一样进行了封装
-                    //var virtualDataSource = context1.ServiceProvider.GetRequiredService<IVirtualDataSourceManager<TodoAppDbContext>>().GetCurrentVirtualDataSource();
-                    //var connectionString = virtualDataSource.GetConnectionString(virtualDataSource.DefaultDataSourceName);
-                    //virtualDataSource.ConfigurationParams.UseDbContextOptionsBuilder(connectionString, context1.DbContextOptions);
-                    //context1.DbContextOptions.UseSharding<TodoAppDbContext>();
-
-
-
-                    ////如果你只有单配置可以选择这个配置但是链接字符串必须和AddConfig内部一样
-                    //context1.DbContextOptions.UseSqlServer("Server=.;Database=TodoApp;Trusted_Connection=True").UseSharding<TodoAppDbContext>();
+                    //innerContext.DbContextOptions
+                    //    .ReplaceService<IChangeTrackerFactory, ShardingChangeTrackerFactory>();
+                    innerContext.DbContextOptions.UseDefaultSharding<TodoAppDbContext>(innerContext.ServiceProvider);
                 });
             });
             context.Services.AddShardingConfigure<TodoAppDbContext>()
-                .AddEntityConfig(op =>
+                .UseRouteConfig(op =>
                 {
-                    op.CreateShardingTableOnStart = true;
-                    op.EnsureCreatedWithOutShardingTable = true;
+                    op.AddShardingDataSourceRoute<TodoDataSourceRoute>();
+                    op.AddShardingTableRoute<TodoTableRoute>();
+                })
+                .UseConfig((sp, op) =>
+                {
+                  
+                    //var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                     op.UseShardingQuery((conStr, builder) =>
                     {
                         builder.UseSqlServer(conStr).UseLoggerFactory(efLogger);
@@ -90,22 +90,30 @@ namespace TodoApp.EntityFrameworkCore
                     {
                         builder.UseSqlServer(connection).UseLoggerFactory(efLogger);
                     });
-                    op.AddShardingTableRoute<ToDoItemVirtualTableRoute>();
-                })
-                .AddConfig(op =>
-                {
-                    op.ConfigId = "c1";
+                    op.UseShardingMigrationConfigure(builder =>
+                    {
+                        builder.ReplaceService<IMigrationsSqlGenerator, ShardingSqlServerMigrationsSqlGenerator>();
+                    });
                     op.AddDefaultDataSource("ds0", "Server=.;Database=TodoApp;Trusted_Connection=True");
-                    op.ReplaceTableEnsureManager(sp => new SqlServerTableEnsureManager<TodoAppDbContext>());
-                }).EnsureConfig();
+                    op.AddExtraDataSource(sp =>
+                    {
+                        return new Dictionary<string, string>()
+                        {
+                            { "ds1", "Server=.;Database=TodoApp1;Trusted_Connection=True" },
+                            { "ds2", "Server=.;Database=TodoApp2;Trusted_Connection=True" }
+                        };
+                    });
+                })
+                .AddShardingCore();
         }
-
-
 
         public override void OnPostApplicationInitialization(ApplicationInitializationContext context)
         {
             base.OnPostApplicationInitialization(context);
-            context.ServiceProvider.GetRequiredService<IShardingBootstrapper>().Start();
+            //创建表的定时任务如果有按年月日系统默认路由的需要系统创建的记得开起来
+            context.ServiceProvider.UseAutoShardingCreate();
+            //补偿表 //自动迁移的话不需要
+            //context.ServiceProvider.UseAutoTryCompensateTable();
         }
     }
 }

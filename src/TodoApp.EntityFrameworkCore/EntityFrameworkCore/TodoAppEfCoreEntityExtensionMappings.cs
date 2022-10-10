@@ -39,6 +39,21 @@ namespace TodoApp.EntityFrameworkCore
                  * See the documentation for more:
                  * https://docs.abp.io/en/abp/latest/Customizing-Application-Modules-Extending-Entities
                  */
+                ObjectExtensionManager.Instance
+                    .MapEfCoreProperty<TodoItem, string>(
+                        "MyProperty",
+                        (entityBuilder, propertyBuilder) =>
+                        {
+                            propertyBuilder.HasMaxLength(128);
+                        }
+                    )
+                    .MapEfCoreProperty<TodoItem, string>(
+                        "MyProperty1",
+                        (entityBuilder, propertyBuilder) =>
+                        {
+                            propertyBuilder.HasMaxLength(128);
+                        }
+                    );
             });
         }
     }
